@@ -1,585 +1,142 @@
 const express = require("express");
+
 const cors = require("cors");
-const multer = require("multer");
-const path = require("path");
-const pool = require("./db");
+
+require("dotenv").config();
+
+const { Pool } = require("pg");
+
 const app = express();
-app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "https://SEU-FRONTEND.vercel.app"
-  ],
-  methods: [
-    "GET",
-    "POST",
-    "PUT",
-    "DELETE"
-  ],
-  credentials: true
-}));
+
+app.use(cors());
+
 app.use(express.json());
-// ======================================
-// UPLOAD DE IMAGENS
-// ======================================
 
-app.use("/uploads",
-  express.static(
-    path.join(__dirname, "uploads")
-  )
-);
+/* =========================
+   POSTGRESQL ONLINE - NEON
+========================= */
 
-const storage = multer.diskStorage({
+const pool = new Pool({
 
-  destination: (req, file, cb) => {
+  connectionString:
+    process.env.DATABASE_URL,
 
-    cb(null, "uploads/");
+  ssl: {
+
+    rejectUnauthorized: false,
 
   },
 
-  filename: (req, file, cb) => {
+});
 
-    cb(
-      null,
-      Date.now() +
-      "-" +
-      file.originalname
+/* =========================
+   TESTE BANCO
+========================= */
+
+pool.connect()
+
+  .then(() => {
+
+    console.log(
+      "POSTGRES CONECTADO"
     );
 
-  }
+  })
 
-});
+  .catch((err) => {
 
-const upload = multer({
-  storage
-});
-
-// ======================================
-// BIBLIOTECA INDUSTRIAL
-// ======================================
-
-const biblioteca = {
-
-  perfis: [
-    {
-      id: 1,
-      codigo: "SUP-001",
-      nome: "Perfil Suprema Vertical",
-      linha: "Suprema",
-      valor: 45,
-      imagem:
-        "http://localhost:3001/uploads/perfil1.png"
-    }
-  ],
-
-  vidros: [
-    {
-      id: 1,
-      codigo: "VD-001",
-      nome: "Vidro Temperado 8mm",
-      valor: 120,
-      imagem:
-        "http://localhost:3001/uploads/vidro1.png"
-    }
-  ],
-
-  acessorios: [
-  {
-    id: 1,
-    codigo: "1125",
-    nome: "Acessório 1125",
-    valor: 35,
-    imagem: "http://localhost:3001/uploads/acessorio1.png"
-  }
-]
-};
-// ======================================
-// ROTAS
-// ======================================
-
-app.get("/api/biblioteca", (req, res) => {
-
-  const tipo = req.query.tipo || "perfis";
-
-  if (!biblioteca[tipo]) {
-
-    return res.status(404).json({
-      erro: "Tipo não encontrado"
-    });
-
-  }
-
-  res.json(biblioteca[tipo]);
-});
-
-
-// ======================================
-
-const PORT = 3001;
-app.post(
-  "/api/upload",
-  upload.single("imagem"),
-  (req, res) => {
-
-    res.json({
-      imagem:
-        `http://localhost:3001/uploads/${req.file.filename}`
-    });
-
-  }
-);
-// ======================================
-// CRIAR TABELAS ERP
-// ======================================
-
-app.get("/api/criar-tabelas", async (req, res) => {
-
-  try {
-
-    // ==================================
-    // CLIENTES
-    // ==================================
-
-    await pool.query(`
-
-      CREATE TABLE IF NOT EXISTS clientes (
-
-        id SERIAL PRIMARY KEY,
-
-        nome TEXT,
-
-        telefone TEXT,
-
-        email TEXT,
-
-        cidade TEXT,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-      )
-
-    `);
-
-
-    // ==================================
-    // OBRAS
-    // ==================================
-
-    await pool.query(`
-
-      CREATE TABLE IF NOT EXISTS obras (
-
-        id SERIAL PRIMARY KEY,
-
-        cliente TEXT,
-
-        nome TEXT,
-
-        endereco TEXT,
-
-        cidade TEXT,
-
-        status TEXT,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-      )
-
-    `);
-
-
-    // ==================================
-    // TIPOLOGIAS
-    // ==================================
-
-    await pool.query(`
-
-      CREATE TABLE IF NOT EXISTS tipologias (
-
-        id SERIAL PRIMARY KEY,
-
-        nome TEXT,
-
-        linha TEXT,
-
-        largura INTEGER,
-
-        altura INTEGER,
-
-        observacao TEXT,
-
-        imagem TEXT,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-      )
-
-    `);
-
-
-    // ==================================
-    // PERFIS
-    // ==================================
-
-    await pool.query(`
-
-      CREATE TABLE IF NOT EXISTS perfis (
-
-        id SERIAL PRIMARY KEY,
-
-        codigo TEXT,
-
-        nome TEXT,
-
-        linha TEXT,
-
-        peso NUMERIC,
-
-        valor NUMERIC,
-
-        imagem TEXT,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-      )
-
-    `);
-
-
-    // ==================================
-    // VIDROS
-    // ==================================
-
-    await pool.query(`
-
-      CREATE TABLE IF NOT EXISTS vidros (
-
-        id SERIAL PRIMARY KEY,
-
-        nome TEXT,
-
-        espessura TEXT,
-
-        valor NUMERIC,
-
-        imagem TEXT,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-      )
-
-    `);
-
-
-    // ==================================
-    // ACESSORIOS
-    // ==================================
-
-    await pool.query(`
-
-      CREATE TABLE IF NOT EXISTS acessorios (
-
-        id SERIAL PRIMARY KEY,
-
-        codigo TEXT,
-
-        nome TEXT,
-
-        valor NUMERIC,
-
-        imagem TEXT,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-      )
-
-    `);
-
-
-    // ==================================
-    // ORÇAMENTOS
-    // ==================================
-
-    await pool.query(`
-
-      CREATE TABLE IF NOT EXISTS orcamentos (
-
-        id SERIAL PRIMARY KEY,
-
-        cliente TEXT,
-
-        obra TEXT,
-
-        valor_total NUMERIC,
-
-        dados JSONB,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-      )
-
-    `);
-
-
-    // ==================================
-    // PRODUÇÃO
-    // ==================================
-
-    await pool.query(`
-
-      CREATE TABLE IF NOT EXISTS producao (
-
-        id SERIAL PRIMARY KEY,
-
-        obra TEXT,
-
-        status TEXT,
-
-        dados JSONB,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-      )
-
-    `);
-
-
-    // ==================================
-    // FINANCEIRO
-    // ==================================
-
-    await pool.query(`
-
-      CREATE TABLE IF NOT EXISTS financeiro (
-
-        id SERIAL PRIMARY KEY,
-
-        descricao TEXT,
-
-        tipo TEXT,
-
-        categoria TEXT,
-
-        valor NUMERIC,
-
-        status TEXT,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-      )
-
-    `);
-
-
-    res.json({
-
-      ok: true,
-
-      mensagem:
-        "Tabelas ERP criadas"
-
-    });
-
-  } catch (error) {
-
-    console.log(error);
-
-    res.status(500).json(error);
-
-  }
-
-});
-// ======================================
-// TIPOLOGIAS
-// ======================================
-
-
-// ======================================
-// LISTAR
-// ======================================
-
-app.get("/api/tipologias", async (req, res) => {
-
-  try {
-
-    const resultado =
-      await pool.query(`
-        SELECT *
-        FROM tipologias
-        ORDER BY id DESC
-      `);
-
-    res.json(
-      resultado.rows
+    console.log(
+      "ERRO POSTGRES",
+      err
     );
 
-  } catch (error) {
+  });
 
-    console.log(error);
+/* =========================
+   ROTA TESTE
+========================= */
 
-    res.status(500).json(error);
+app.get("/", (req, res) => {
 
-  }
-
-});
-
-
-// ======================================
-// SALVAR
-// ======================================
-
-app.post("/api/tipologias", async (req, res) => {
-
-  try {
-
-    const {
-
-      nome,
-      linha,
-      largura,
-      altura,
-      observacao,
-      imagem
-
-    } = req.body;
-
-
-    const resultado =
-      await pool.query(
-
-        `
-        INSERT INTO tipologias
-        (
-          nome,
-          linha,
-          largura,
-          altura,
-          observacao,
-          imagem
-        )
-
-        VALUES
-        ($1,$2,$3,$4,$5,$6)
-
-        RETURNING *
-        `,
-
-        [
-          nome,
-          linha,
-          largura,
-          altura,
-          observacao,
-          imagem
-        ]
-
-      );
-
-    res.json(
-      resultado.rows[0]
-    );
-
-  } catch (error) {
-
-    console.log(error);
-
-    res.status(500).json(error);
-
-  }
+  res.send(
+    "SERVIDOR INDUSTRIAL ONLINE"
+  );
 
 });
 
+/* =========================
+   CLIENTES
+========================= */
 
-// ======================================
-// EXCLUIR
-// ======================================
-
-app.delete(
-  "/api/tipologias/:id",
+app.get(
+  "/clientes",
   async (req, res) => {
 
     try {
 
-      await pool.query(
+      const resultado =
+        await pool.query(
 
-        `
-        DELETE FROM tipologias
-        WHERE id = $1
-        `,
+          "SELECT * FROM clientes ORDER BY id DESC"
 
-        [req.params.id]
+        );
 
+      res.json(
+        resultado.rows
       );
 
-      res.json({
-        ok: true
+    } catch (erro) {
+
+      console.log(erro);
+
+      res.status(500).json({
+
+        erro:
+          "Erro ao buscar clientes",
+
       });
-
-    } catch (error) {
-
-      console.log(error);
-
-      res.status(500).json(error);
 
     }
 
   }
 );
 
-
-// ======================================
-// EDITAR
-// ======================================
-
-app.put(
-  "/api/tipologias/:id",
+app.post(
+  "/clientes",
   async (req, res) => {
 
     try {
 
       const {
-
         nome,
-        linha,
-        largura,
-        altura,
-        observacao,
-        imagem
-
+        telefone,
+        email,
+        cidade
       } = req.body;
-
 
       const resultado =
         await pool.query(
 
           `
-          UPDATE tipologias
+          INSERT INTO clientes
+          (
+            nome,
+            telefone,
+            email,
+            cidade
+          )
 
-          SET
-
-            nome = $1,
-            linha = $2,
-            largura = $3,
-            altura = $4,
-            observacao = $5,
-            imagem = $6
-
-          WHERE id = $7
+          VALUES
+          ($1,$2,$3,$4)
 
           RETURNING *
-
           `,
 
           [
-
             nome,
-            linha,
-            largura,
-            altura,
-            observacao,
-            imagem,
-
-            req.params.id
-
+            telefone,
+            email,
+            cidade
           ]
 
         );
@@ -588,20 +145,425 @@ app.put(
         resultado.rows[0]
       );
 
-    } catch (error) {
+    } catch (erro) {
 
-      console.log(error);
+      console.log(erro);
 
-      res.status(500).json(error);
+      res.status(500).json({
+
+        erro:
+          "Erro ao salvar cliente",
+
+      });
 
     }
 
   }
 );
-app.listen(PORT, () => {
 
-  console.log(
-    `🚀 Backend rodando na porta ${PORT}`
-  );
+/* =========================
+   PERFIS
+========================= */
 
-});
+app.get(
+  "/perfis",
+  async (req, res) => {
+
+    try {
+
+      const resultado =
+        await pool.query(
+
+          "SELECT * FROM perfis ORDER BY id DESC"
+
+        );
+
+      res.json(
+        resultado.rows
+      );
+
+    } catch (erro) {
+
+      console.log(erro);
+
+      res.status(500).json({
+
+        erro:
+          "Erro ao buscar perfis",
+
+      });
+
+    }
+
+  }
+);
+
+app.post(
+  "/perfis",
+  async (req, res) => {
+
+    try {
+
+      const {
+        nome,
+        linha,
+        peso,
+        valor_kg,
+        cor
+      } = req.body;
+
+      const resultado =
+        await pool.query(
+
+          `
+          INSERT INTO perfis
+          (
+            nome,
+            linha,
+            peso,
+            valor_kg,
+            cor
+          )
+
+          VALUES
+          ($1,$2,$3,$4,$5)
+
+          RETURNING *
+          `,
+
+          [
+            nome,
+            linha,
+            peso,
+            valor_kg,
+            cor
+          ]
+
+        );
+
+      res.json(
+        resultado.rows[0]
+      );
+
+    } catch (erro) {
+
+      console.log(erro);
+
+      res.status(500).json({
+
+        erro:
+          "Erro ao salvar perfil",
+
+      });
+
+    }
+
+  }
+);
+
+/* =========================
+   VIDROS
+========================= */
+
+app.get(
+  "/vidros",
+  async (req, res) => {
+
+    try {
+
+      const resultado =
+        await pool.query(
+
+          "SELECT * FROM vidros ORDER BY id DESC"
+
+        );
+
+      res.json(
+        resultado.rows
+      );
+
+    } catch (erro) {
+
+      console.log(erro);
+
+      res.status(500).json({
+
+        erro:
+          "Erro ao buscar vidros",
+
+      });
+
+    }
+
+  }
+);
+
+app.post(
+  "/vidros",
+  async (req, res) => {
+
+    try {
+
+      const {
+        nome,
+        espessura,
+        valor_m2,
+        cor
+      } = req.body;
+
+      const resultado =
+        await pool.query(
+
+          `
+          INSERT INTO vidros
+          (
+            nome,
+            espessura,
+            valor_m2,
+            cor
+          )
+
+          VALUES
+          ($1,$2,$3,$4)
+
+          RETURNING *
+          `,
+
+          [
+            nome,
+            espessura,
+            valor_m2,
+            cor
+          ]
+
+        );
+
+      res.json(
+        resultado.rows[0]
+      );
+
+    } catch (erro) {
+
+      console.log(erro);
+
+      res.status(500).json({
+
+        erro:
+          "Erro ao salvar vidro",
+
+      });
+
+    }
+
+  }
+);
+
+/* =========================
+   TIPOLOGIAS
+========================= */
+
+app.get(
+  "/tipologias",
+  async (req, res) => {
+
+    try {
+
+      const resultado =
+        await pool.query(
+
+          "SELECT * FROM tipologias ORDER BY id DESC"
+
+        );
+
+      res.json(
+        resultado.rows
+      );
+
+    } catch (erro) {
+
+      console.log(erro);
+
+      res.status(500).json({
+
+        erro:
+          "Erro ao buscar tipologias",
+
+      });
+
+    }
+
+  }
+);
+
+app.post(
+  "/tipologias",
+  async (req, res) => {
+
+    try {
+
+      const {
+        nome,
+        linha,
+        largura,
+        altura,
+        observacao
+      } = req.body;
+
+      const resultado =
+        await pool.query(
+
+          `
+          INSERT INTO tipologias
+          (
+            nome,
+            linha,
+            largura,
+            altura,
+            observacao
+          )
+
+          VALUES
+          ($1,$2,$3,$4,$5)
+
+          RETURNING *
+          `,
+
+          [
+            nome,
+            linha,
+            largura,
+            altura,
+            observacao
+          ]
+
+        );
+
+      res.json(
+        resultado.rows[0]
+      );
+
+    } catch (erro) {
+
+      console.log(erro);
+
+      res.status(500).json({
+
+        erro:
+          "Erro ao salvar tipologia",
+
+      });
+
+    }
+
+  }
+);
+
+/* =========================
+   ORÇAMENTOS
+========================= */
+
+app.get(
+  "/orcamentos",
+  async (req, res) => {
+
+    try {
+
+      const resultado =
+        await pool.query(
+
+          "SELECT * FROM orcamentos ORDER BY id DESC"
+
+        );
+
+      res.json(
+        resultado.rows
+      );
+
+    } catch (erro) {
+
+      console.log(erro);
+
+      res.status(500).json({
+
+        erro:
+          "Erro ao buscar orçamentos",
+
+      });
+
+    }
+
+  }
+);
+
+app.post(
+  "/orcamentos",
+  async (req, res) => {
+
+    try {
+
+      const {
+        cliente,
+        valor_total,
+        descricao
+      } = req.body;
+
+      const resultado =
+        await pool.query(
+
+          `
+          INSERT INTO orcamentos
+          (
+            cliente,
+            valor_total,
+            descricao
+          )
+
+          VALUES
+          ($1,$2,$3)
+
+          RETURNING *
+          `,
+
+          [
+            cliente,
+            valor_total,
+            descricao
+          ]
+
+        );
+
+      res.json(
+        resultado.rows[0]
+      );
+
+    } catch (erro) {
+
+      console.log(erro);
+
+      res.status(500).json({
+
+        erro:
+          "Erro ao salvar orçamento",
+
+      });
+
+    }
+
+  }
+);
+
+/* =========================
+   SERVIDOR
+========================= */
+
+app.listen(
+  3001,
+  "0.0.0.0",
+  () => {
+
+    console.log(
+      "SERVIDOR INDUSTRIAL RODANDO NA PORTA 3001"
+    );
+
+  }
+);
