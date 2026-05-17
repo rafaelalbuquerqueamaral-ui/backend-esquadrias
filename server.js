@@ -7,7 +7,19 @@ require("dotenv").config();
 const { Pool } = require("pg");
 
 const app = express();
+const multer = require("multer");
+const path = require("path");
 
+app.use("/uploads", express.static("uploads"));
+
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  }
+});
+
+const upload = multer({ storage });
 app.use(cors());
 
 app.use(express.json());
@@ -766,6 +778,15 @@ app.post("/acessorios", async (req, res) => {
       erro: "Erro ao salvar acessório",
     });
   }
+});
+app.post("/upload", upload.single("imagem"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ erro: "Nenhuma imagem enviada" });
+  }
+
+  res.json({
+    url: `https://backend-esquadrias-1.onrender.com/uploads/${req.file.filename}`
+  });
 });
 app.listen(
   3001,
