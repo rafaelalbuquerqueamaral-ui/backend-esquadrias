@@ -699,6 +699,74 @@ app.listen(PORT, () => {
   console.log("Servidor rodando");
 
 });
+app.get("/acessorios", async (req, res) => {
+  try {
+    const resultado = await pool.query(`
+      SELECT * FROM acessorios
+      ORDER BY id DESC
+    `);
+
+    res.json(resultado.rows);
+  } catch (erro) {
+    console.log(erro);
+    res.status(500).json({
+      erro: "Erro ao buscar acessórios",
+    });
+  }
+});
+
+app.post("/acessorios", async (req, res) => {
+  try {
+    const {
+      nome,
+      codigo,
+      linha,
+      categoria,
+      cor,
+      unidade,
+      valor_unitario,
+      fornecedor,
+      observacao,
+    } = req.body;
+
+    const resultado = await pool.query(
+      `
+      INSERT INTO acessorios
+      (
+        nome,
+        codigo,
+        linha,
+        categoria,
+        cor,
+        unidade,
+        valor_unitario,
+        fornecedor,
+        observacao
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      RETURNING *
+      `,
+      [
+        nome,
+        codigo,
+        linha,
+        categoria,
+        cor,
+        unidade,
+        valor_unitario,
+        fornecedor,
+        observacao,
+      ]
+    );
+
+    res.json(resultado.rows[0]);
+  } catch (erro) {
+    console.log(erro);
+    res.status(500).json({
+      erro: "Erro ao salvar acessório",
+    });
+  }
+});
 app.listen(
   3001,
   "0.0.0.0",
