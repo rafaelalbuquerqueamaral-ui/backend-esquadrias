@@ -627,7 +627,73 @@ app.post("/perfis", async (req, res) => {
   }
 
 });
+app.get("/obras", async (req, res) => {
+  try {
 
+    const resultado = await pool.query(`
+      SELECT * FROM obras
+      ORDER BY id DESC
+    `);
+
+    res.json(resultado.rows);
+
+  } catch (erro) {
+
+    console.log(erro);
+
+    res.status(500).json({
+      erro: "Erro ao buscar obras"
+    });
+
+  }
+});
+
+app.post("/obras", async (req, res) => {
+
+  try {
+
+    const {
+      nome,
+      cliente,
+      endereco,
+      cidade,
+      status,
+      observacao
+    } = req.body;
+
+    const resultado = await pool.query(`
+      INSERT INTO obras (
+        nome,
+        cliente,
+        endereco,
+        cidade,
+        status,
+        observacao
+      )
+      VALUES ($1,$2,$3,$4,$5,$6)
+      RETURNING *
+    `,
+    [
+      nome,
+      cliente,
+      endereco,
+      cidade,
+      status,
+      observacao
+    ]);
+
+    res.json(resultado.rows[0]);
+
+  } catch (erro) {
+
+    console.log(erro);
+
+    res.status(500).json({
+      erro: "Erro ao salvar obra"
+    });
+
+  }
+});
 app.listen(PORT, () => {
 
   console.log("Servidor rodando");
