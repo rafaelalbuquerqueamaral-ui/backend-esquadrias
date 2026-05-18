@@ -272,7 +272,14 @@ app.post(
 
   }
 );
-
+app.delete("/perfis/limpar", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM perfis");
+    res.json({ ok: true });
+  } catch (erro) {
+    res.status(500).json({ erro: erro.message });
+  }
+});
 /* =========================
    VIDROS
 ========================= */
@@ -369,7 +376,14 @@ app.post(
 
   }
 );
-
+app.delete("/vidros/limpar", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM vidros");
+    res.json({ ok: true });
+  } catch (erro) {
+    res.status(500).json({ erro: erro.message });
+  }
+});
 /* =========================
    TIPOLOGIAS
 ========================= */
@@ -469,7 +483,14 @@ app.post(
 
   }
 );
-
+app.delete("/tipologias/limpar", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM tipologias");
+    res.json({ ok: true });
+  } catch (erro) {
+    res.status(500).json({ erro: erro.message });
+  }
+});
 /* =========================
    ORÇAMENTOS
 ========================= */
@@ -787,6 +808,53 @@ app.post("/upload", upload.single("imagem"), (req, res) => {
   res.json({
     url: `https://backend-esquadrias-1.onrender.com/uploads/${req.file.filename}`
   });
+});
+app.delete("/acessorios/limpar", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM acessorios");
+    res.json({ ok: true });
+  } catch (erro) {
+    res.status(500).json({ erro: erro.message });
+  }
+});
+app.delete("/perfis/limpar", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM perfis");
+    res.json({ ok: true });
+  } catch (erro) {
+    console.log(erro);
+    res.status(500).json({ erro: "Erro ao limpar perfis" });
+  }
+});
+
+app.delete("/acessorios/limpar", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM acessorios");
+    res.json({ ok: true });
+  } catch (erro) {
+    console.log(erro);
+    res.status(500).json({ erro: "Erro ao limpar acessórios" });
+  }
+});
+
+app.delete("/vidros/limpar", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM vidros");
+    res.json({ ok: true });
+  } catch (erro) {
+    console.log(erro);
+    res.status(500).json({ erro: "Erro ao limpar vidros" });
+  }
+});
+
+app.delete("/tipologias/limpar", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM tipologias");
+    res.json({ ok: true });
+  } catch (erro) {
+    console.log(erro);
+    res.status(500).json({ erro: "Erro ao limpar tipologias" });
+  }
 });
 app.listen(
   3001,
