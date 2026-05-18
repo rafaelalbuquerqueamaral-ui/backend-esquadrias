@@ -1,869 +1,263 @@
-const express = require("express");
-
-const cors = require("cors");
-
 require("dotenv").config();
 
-const { Pool } = require("pg");
-
-const app = express();
+const express = require("express");
+const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
-app.use("/uploads", express.static("uploads"));
+const app = express();
 
-const storage = multer.diskStorage({
-  destination: "uploads/",
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  }
-});
-
-const upload = multer({ storage });
 app.use(cors());
-
 app.use(express.json());
 
-/* =========================
-   POSTGRESQL ONLINE - NEON
-========================= */
+/* =====================================================
+   PASTA UPLOADS
+===================================================== */
 
-const pool = new Pool({
+const pastaUploads = path.join(__dirname, "uploads");
 
-  connectionString:
-    process.env.DATABASE_URL,
+if (!fs.existsSync(pastaUploads)) {
+  fs.mkdirSync(pastaUploads);
+}
 
-  ssl: {
+app.use("/uploads", express.static(pastaUploads));
 
-    rejectUnauthorized: false,
+/* =====================================================
+   MULTER
+===================================================== */
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, pastaUploads);
   },
 
+  filename: (req, file, cb) => {
+    cb(
+      null,
+      Date.now() + "-" + file.originalname
+    );
+  },
 });
 
-/* =========================
-   TESTE BANCO
-========================= */
-
-pool.connect()
-
-  .then(() => {
-
-    console.log(
-      "POSTGRES CONECTADO"
-    );
-
-  })
-
-  .catch((err) => {
-
-    console.log(
-      "ERRO POSTGRES",
-      err
-    );
-
-  });
-
-/* =========================
-   ROTA TESTE
-========================= */
-
-app.get("/", (req, res) => {
-
-  res.send(
-    "SERVIDOR INDUSTRIAL ONLINE"
-  );
-
+const upload = multer({
+  storage,
 });
 
-/* =========================
-   CLIENTES
-========================= */
+/* =====================================================
+   BANCO TEMPORÁRIO
+===================================================== */
 
-app.get(
-  "/clientes",
-  async (req, res) => {
+let perfis = [];
+let acessorios = [];
+let vidros = [];
+let tipologias = [];
+let fachadas = [];
 
-    try {
-
-      const resultado =
-        await pool.query(
-
-          "SELECT * FROM clientes ORDER BY id DESC"
-
-        );
-
-      res.json(
-        resultado.rows
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao buscar clientes",
-
-      });
-
-    }
-
-  }
-);
-
-app.post(
-  "/clientes",
-  async (req, res) => {
-
-    try {
-
-      const {
-        nome,
-        telefone,
-        email,
-        cidade
-      } = req.body;
-
-      const resultado =
-        await pool.query(
-
-          `
-          INSERT INTO clientes
-          (
-            nome,
-            telefone,
-            email,
-            cidade
-          )
-
-          VALUES
-          ($1,$2,$3,$4)
-
-          RETURNING *
-          `,
-
-          [
-            nome,
-            telefone,
-            email,
-            cidade
-          ]
-
-        );
-
-      res.json(
-        resultado.rows[0]
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao salvar cliente",
-
-      });
-
-    }
-
-  }
-);
-
-/* =========================
+/* =====================================================
    PERFIS
-========================= */
+===================================================== */
 
-app.get(
-  "/perfis",
-  async (req, res) => {
-
-    try {
-
-      const resultado =
-        await pool.query(
-
-          "SELECT * FROM perfis ORDER BY id DESC"
-
-        );
-
-      res.json(
-        resultado.rows
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao buscar perfis",
-
-      });
-
-    }
-
-  }
-);
+app.get("/perfis", (req, res) => {
+  res.json(perfis);
+});
 
 app.post(
   "/perfis",
-  async (req, res) => {
+  upload.single("imagem"),
+  (req, res) => {
+    const novo = {
+      id: Date.now(),
 
-    try {
+      codigo: req.body.codigo,
+      descricao: req.body.descricao,
+      valor: req.body.valor,
+      peso: req.body.peso,
 
-      const {
-        nome,
-        linha,
-        peso,
-        valor_kg,
-        cor
-      } = req.body;
+      imagem: req.file
+        ? `/uploads/${req.file.filename}`
+        : "",
+    };
 
-      const resultado =
-        await pool.query(
+    perfis.push(novo);
 
-          `
-          INSERT INTO perfis
-          (
-            nome,
-            linha,
-            peso,
-            valor_kg,
-            cor
-          )
-
-          VALUES
-          ($1,$2,$3,$4,$5)
-
-          RETURNING *
-          `,
-
-          [
-            nome,
-            linha,
-            peso,
-            valor_kg,
-            cor
-          ]
-
-        );
-
-      res.json(
-        resultado.rows[0]
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao salvar perfil",
-
-      });
-
-    }
-
-  }
-);
-app.delete("/perfis/limpar", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM perfis");
-    res.json({ ok: true });
-  } catch (erro) {
-    res.status(500).json({ erro: erro.message });
-  }
-});
-/* =========================
-   VIDROS
-========================= */
-
-app.get(
-  "/vidros",
-  async (req, res) => {
-
-    try {
-
-      const resultado =
-        await pool.query(
-
-          "SELECT * FROM vidros ORDER BY id DESC"
-
-        );
-
-      res.json(
-        resultado.rows
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao buscar vidros",
-
-      });
-
-    }
-
+    res.json(novo);
   }
 );
 
-app.post(
-  "/vidros",
-  async (req, res) => {
-
-    try {
-
-      const {
-        nome,
-        espessura,
-        valor_m2,
-        cor
-      } = req.body;
-
-      const resultado =
-        await pool.query(
-
-          `
-          INSERT INTO vidros
-          (
-            nome,
-            espessura,
-            valor_m2,
-            cor
-          )
-
-          VALUES
-          ($1,$2,$3,$4)
-
-          RETURNING *
-          `,
-
-          [
-            nome,
-            espessura,
-            valor_m2,
-            cor
-          ]
-
-        );
-
-      res.json(
-        resultado.rows[0]
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao salvar vidro",
-
-      });
-
-    }
-
-  }
-);
-app.delete("/vidros/limpar", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM vidros");
-    res.json({ ok: true });
-  } catch (erro) {
-    res.status(500).json({ erro: erro.message });
-  }
-});
-/* =========================
-   TIPOLOGIAS
-========================= */
-
-app.get(
-  "/tipologias",
-  async (req, res) => {
-
-    try {
-
-      const resultado =
-        await pool.query(
-
-          "SELECT * FROM tipologias ORDER BY id DESC"
-
-        );
-
-      res.json(
-        resultado.rows
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao buscar tipologias",
-
-      });
-
-    }
-
-  }
-);
-
-app.post(
-  "/tipologias",
-  async (req, res) => {
-
-    try {
-
-      const {
-        nome,
-        linha,
-        largura,
-        altura,
-        observacao
-      } = req.body;
-
-      const resultado =
-        await pool.query(
-
-          `
-          INSERT INTO tipologias
-          (
-            nome,
-            linha,
-            largura,
-            altura,
-            observacao
-          )
-
-          VALUES
-          ($1,$2,$3,$4,$5)
-
-          RETURNING *
-          `,
-
-          [
-            nome,
-            linha,
-            largura,
-            altura,
-            observacao
-          ]
-
-        );
-
-      res.json(
-        resultado.rows[0]
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao salvar tipologia",
-
-      });
-
-    }
-
-  }
-);
-app.delete("/tipologias/limpar", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM tipologias");
-    res.json({ ok: true });
-  } catch (erro) {
-    res.status(500).json({ erro: erro.message });
-  }
-});
-/* =========================
-   ORÇAMENTOS
-========================= */
-
-app.get(
-  "/orcamentos",
-  async (req, res) => {
-
-    try {
-
-      const resultado =
-        await pool.query(
-
-          "SELECT * FROM orcamentos ORDER BY id DESC"
-
-        );
-
-      res.json(
-        resultado.rows
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao buscar orçamentos",
-
-      });
-
-    }
-
-  }
-);
-
-app.post(
-  "/orcamentos",
-  async (req, res) => {
-
-    try {
-
-      const {
-        cliente,
-        valor_total,
-        descricao
-      } = req.body;
-
-      const resultado =
-        await pool.query(
-
-          `
-          INSERT INTO orcamentos
-          (
-            cliente,
-            valor_total,
-            descricao
-          )
-
-          VALUES
-          ($1,$2,$3)
-
-          RETURNING *
-          `,
-
-          [
-            cliente,
-            valor_total,
-            descricao
-          ]
-
-        );
-
-      res.json(
-        resultado.rows[0]
-      );
-
-    } catch (erro) {
-
-      console.log(erro);
-
-      res.status(500).json({
-
-        erro:
-          "Erro ao salvar orçamento",
-
-      });
-
-    }
-
-  }
-);
-
-/* =========================
-   SERVIDOR
-========================= */
-app.get("/perfis", async (req, res) => {
-
-  try {
-
-    const resultado = await pool.query(`
-      SELECT * FROM perfis
-      ORDER BY id DESC
-    `);
-
-    res.json(resultado.rows);
-
-  } catch (erro) {
-
-    console.log(erro);
-
-    res.status(500).json({
-      erro: "Erro ao buscar perfis"
-    });
-
-  }
-
-});
-
-app.post("/perfis", async (req, res) => {
-
-  try {
-
-    const {
-      nome,
-      codigo,
-      linha,
-      cor,
-      valor_barra,
-      peso_kg
-    } = req.body;
-
-    const resultado = await pool.query(`
-      INSERT INTO perfis
-      (
-        nome,
-        codigo,
-        linha,
-        cor,
-        valor_barra,
-        peso_kg
-      )
-
-      VALUES ($1,$2,$3,$4,$5,$6)
-
-      RETURNING *
-    `, [
-      nome,
-      codigo,
-      linha,
-      cor,
-      valor_barra,
-      peso_kg
-    ]);
-
-    res.json(resultado.rows[0]);
-
-  } catch (erro) {
-
-    console.log(erro);
-
-    res.status(500).json({
-      erro: "Erro ao salvar perfil"
-    });
-
-  }
-
-});
-app.get("/obras", async (req, res) => {
-  try {
-
-    const resultado = await pool.query(`
-      SELECT * FROM obras
-      ORDER BY id DESC
-    `);
-
-    res.json(resultado.rows);
-
-  } catch (erro) {
-
-    console.log(erro);
-
-    res.status(500).json({
-      erro: "Erro ao buscar obras"
-    });
-
-  }
-});
-
-app.post("/obras", async (req, res) => {
-
-  try {
-
-    const {
-      nome,
-      cliente,
-      endereco,
-      cidade,
-      status,
-      observacao
-    } = req.body;
-
-    const resultado = await pool.query(`
-      INSERT INTO obras (
-        nome,
-        cliente,
-        endereco,
-        cidade,
-        status,
-        observacao
-      )
-      VALUES ($1,$2,$3,$4,$5,$6)
-      RETURNING *
-    `,
-    [
-      nome,
-      cliente,
-      endereco,
-      cidade,
-      status,
-      observacao
-    ]);
-
-    res.json(resultado.rows[0]);
-
-  } catch (erro) {
-
-    console.log(erro);
-
-    res.status(500).json({
-      erro: "Erro ao salvar obra"
-    });
-
-  }
-});
-app.listen(PORT, () => {
-
-  console.log("Servidor rodando");
-
-});
-app.get("/acessorios", async (req, res) => {
-  try {
-    const resultado = await pool.query(`
-      SELECT * FROM acessorios
-      ORDER BY id DESC
-    `);
-
-    res.json(resultado.rows);
-  } catch (erro) {
-    console.log(erro);
-    res.status(500).json({
-      erro: "Erro ao buscar acessórios",
-    });
-  }
-});
-
-app.post("/acessorios", async (req, res) => {
-  try {
-    const {
-      nome,
-      codigo,
-      linha,
-      categoria,
-      cor,
-      unidade,
-      valor_unitario,
-      fornecedor,
-      observacao,
-    } = req.body;
-
-    const resultado = await pool.query(
-      `
-      INSERT INTO acessorios
-      (
-        nome,
-        codigo,
-        linha,
-        categoria,
-        cor,
-        unidade,
-        valor_unitario,
-        fornecedor,
-        observacao
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-      RETURNING *
-      `,
-      [
-        nome,
-        codigo,
-        linha,
-        categoria,
-        cor,
-        unidade,
-        valor_unitario,
-        fornecedor,
-        observacao,
-      ]
-    );
-
-    res.json(resultado.rows[0]);
-  } catch (erro) {
-    console.log(erro);
-    res.status(500).json({
-      erro: "Erro ao salvar acessório",
-    });
-  }
-});
-app.post("/upload", upload.single("imagem"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ erro: "Nenhuma imagem enviada" });
-  }
+app.delete("/perfis/limpar", (req, res) => {
+  perfis = [];
 
   res.json({
-    url: `https://backend-esquadrias-1.onrender.com/uploads/${req.file.filename}`
+    sucesso: true,
+    mensagem: "Perfis apagados",
   });
 });
-app.delete("/acessorios/limpar", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM acessorios");
-    res.json({ ok: true });
-  } catch (erro) {
-    res.status(500).json({ erro: erro.message });
-  }
-});
-app.delete("/perfis/limpar", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM perfis");
-    res.json({ ok: true });
-  } catch (erro) {
-    console.log(erro);
-    res.status(500).json({ erro: "Erro ao limpar perfis" });
-  }
+
+/* =====================================================
+   ACESSÓRIOS
+===================================================== */
+
+app.get("/acessorios", (req, res) => {
+  res.json(acessorios);
 });
 
-app.delete("/acessorios/limpar", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM acessorios");
-    res.json({ ok: true });
-  } catch (erro) {
-    console.log(erro);
-    res.status(500).json({ erro: "Erro ao limpar acessórios" });
-  }
-});
+app.post(
+  "/acessorios",
+  upload.single("imagem"),
+  (req, res) => {
+    const novo = {
+      id: Date.now(),
 
-app.delete("/vidros/limpar", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM vidros");
-    res.json({ ok: true });
-  } catch (erro) {
-    console.log(erro);
-    res.status(500).json({ erro: "Erro ao limpar vidros" });
-  }
-});
+      codigo: req.body.codigo,
+      descricao: req.body.descricao,
+      valor: req.body.valor,
 
-app.delete("/tipologias/limpar", async (req, res) => {
-  try {
-    await pool.query("DELETE FROM tipologias");
-    res.json({ ok: true });
-  } catch (erro) {
-    console.log(erro);
-    res.status(500).json({ erro: "Erro ao limpar tipologias" });
-  }
-});
-app.listen(
-  3001,
-  "0.0.0.0",
-  () => {
+      imagem: req.file
+        ? `/uploads/${req.file.filename}`
+        : "",
+    };
 
-    console.log(
-      "SERVIDOR INDUSTRIAL RODANDO NA PORTA 3001"
-    );
+    acessorios.push(novo);
 
+    res.json(novo);
   }
 );
+
+app.delete("/acessorios/limpar", (req, res) => {
+  acessorios = [];
+
+  res.json({
+    sucesso: true,
+    mensagem: "Acessórios apagados",
+  });
+});
+
+/* =====================================================
+   VIDROS
+===================================================== */
+
+app.get("/vidros", (req, res) => {
+  res.json(vidros);
+});
+
+app.post(
+  "/vidros",
+  upload.single("imagem"),
+  (req, res) => {
+    const novo = {
+      id: Date.now(),
+
+      codigo: req.body.codigo,
+      descricao: req.body.descricao,
+      valor: req.body.valor,
+      espessura: req.body.espessura,
+
+      imagem: req.file
+        ? `/uploads/${req.file.filename}`
+        : "",
+    };
+
+    vidros.push(novo);
+
+    res.json(novo);
+  }
+);
+
+app.delete("/vidros/limpar", (req, res) => {
+  vidros = [];
+
+  res.json({
+    sucesso: true,
+    mensagem: "Vidros apagados",
+  });
+});
+
+/* =====================================================
+   TIPOLOGIAS
+===================================================== */
+
+app.get("/tipologias", (req, res) => {
+  res.json(tipologias);
+});
+
+app.post(
+  "/tipologias",
+  upload.single("imagem"),
+  (req, res) => {
+    const nova = {
+      id: Date.now(),
+
+      nome: req.body.nome,
+      linha: req.body.linha,
+      largura: req.body.largura,
+      altura: req.body.altura,
+      observacao: req.body.observacao,
+
+      imagem: req.file
+        ? `/uploads/${req.file.filename}`
+        : "",
+    };
+
+    tipologias.push(nova);
+
+    res.json(nova);
+  }
+);
+
+app.delete("/tipologias/limpar", (req, res) => {
+  tipologias = [];
+
+  res.json({
+    sucesso: true,
+    mensagem: "Tipologias apagadas",
+  });
+});
+
+/* =====================================================
+   FACHADAS
+===================================================== */
+
+app.get("/fachadas", (req, res) => {
+  res.json(fachadas);
+});
+
+app.post("/fachadas", (req, res) => {
+  const fachada = {
+    id: Date.now(),
+    ...req.body,
+  };
+
+  fachadas.push(fachada);
+
+  res.json(fachada);
+});
+
+app.delete("/fachadas/limpar", (req, res) => {
+  fachadas = [];
+
+  res.json({
+    sucesso: true,
+    mensagem: "Fachadas apagadas",
+  });
+});
+
+/* =====================================================
+   ROTA TESTE
+===================================================== */
+
+app.get("/", (req, res) => {
+  res.send("Servidor ERP Esquadrias ONLINE");
+});
+
+/* =====================================================
+   PORTA
+===================================================== */
+
+const PORT = process.env.PORT || 3001;
+
+app.listen(PORT, () => {
+  console.log(
+    `🚀 Servidor rodando na porta ${PORT}`
+  );
+});
